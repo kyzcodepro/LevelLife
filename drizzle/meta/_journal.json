@@ -15,6 +15,13 @@
       "when": 1785607423218,
       "tag": "0001_misty_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785610444631,
+      "tag": "0002_classy_wolfpack",
+      "breakpoints": true
     }
   ]
 }

@@ -156,6 +156,8 @@ export const profiles = pgTable("profiles", {
   visibility: visibilityEnum("visibility").notNull().default("private"),
   /** Poids déclarés à l'onboarding, par code d'attribut (somme = 100). */
   attributeWeights: jsonb("attribute_weights").$type<Record<string, number>>(),
+  /** AVA-6 : granularité du profil public — codes d'attributs affichés. */
+  publicAttributes: jsonb("public_attributes").$type<string[]>(),
 });
 
 // ---------------------------------------------------------------------------
@@ -237,6 +239,8 @@ export const logs = pgTable(
     tags: text("tags").array(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     source: logSourceEnum("source").notNull().default("manual"),
+    /** Partage opt-in au fil de guilde (GLD-2). Privé par défaut (PRD §12). */
+    visibility: visibilityEnum("visibility").notNull().default("private"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -437,12 +441,44 @@ export const guildMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: guildRoleEnum("role").notNull().default("member"),
+    /** Modération GLD-6 : un membre mute ne peut plus partager ni réagir. */
+    muted: boolean("muted").notNull().default(false),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
     weeklyContribution: integer("weekly_contribution").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.guildId, t.userId] })],
+);
+
+/** GLD-3 : objectif collectif hebdomadaire (XP cumulé des membres). */
+export const guildObjectives = pgTable(
+  "guild_objectives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    guildId: uuid("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(),
+    targetXp: integer("target_xp").notNull(),
+    achieved: boolean("achieved").notNull().default(false),
+  },
+  (t) => [uniqueIndex("guild_objectives_week_idx").on(t.guildId, t.weekStart)],
+);
+
+/** GLD-2 : réactions emoji uniquement — pas de commentaires libres en V1. */
+export const feedReactions = pgTable(
+  "feed_reactions",
+  {
+    logId: uuid("log_id")
+      .notNull()
+      .references(() => logs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.logId, t.userId, t.emoji] })],
 );
 
 // ---------------------------------------------------------------------------

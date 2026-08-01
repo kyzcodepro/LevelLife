@@ -33,7 +33,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await createLog(db, user, parsed.data);
-    return NextResponse.json(result, { status: 201 });
+    const { checkAchievements } = await import("@/lib/achievementService");
+    const unlocked = await checkAchievements(db, user);
+    return NextResponse.json({ ...result, unlocked }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur interne";
     const status = message.includes("introuvable") ? 404 : 500;

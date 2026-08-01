@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Users } from "lucide-react";
 import {
   ATTRIBUTE_LIST,
   ATTRIBUTES,
@@ -24,6 +24,7 @@ interface TimelineItem {
     mood: number | null;
     tags: string[] | null;
     mediaUrls: string[] | null;
+    visibility: string;
   };
   type: {
     id: string;
@@ -100,6 +101,25 @@ export function TimelineClient() {
   async function remove(id: string) {
     setItems((prev) => prev.filter((i) => i.log.id !== id));
     await fetch(`/api/logs/${id}`, { method: "DELETE" });
+  }
+
+  /** Partage opt-in au fil de guilde (GLD-2). */
+  async function toggleShare(item: TimelineItem) {
+    const next = item.log.visibility === "guild" ? "private" : "guild";
+    const res = await fetch(`/api/logs/${item.log.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility: next }),
+    });
+    if (res.ok) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.log.id === item.log.id
+            ? { ...i, log: { ...i.log, visibility: next } }
+            : i,
+        ),
+      );
+    }
   }
 
   return (
@@ -249,6 +269,24 @@ export function TimelineClient() {
                       >
                         +{item.xpTotal} XP
                       </span>
+                      <button
+                        type="button"
+                        aria-label={
+                          item.log.visibility === "guild"
+                            ? "Ne plus partager à la guilde"
+                            : "Partager à la guilde"
+                        }
+                        title="Partager au fil de guilde"
+                        onClick={() => toggleShare(item)}
+                        className={cn(
+                          "transition-colors",
+                          item.log.visibility === "guild"
+                            ? "text-accent"
+                            : "text-muted hover:text-foreground",
+                        )}
+                      >
+                        <Users size={15} />
+                      </button>
                       <button
                         type="button"
                         aria-label="Supprimer ce log"

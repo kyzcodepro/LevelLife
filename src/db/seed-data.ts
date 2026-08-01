@@ -92,3 +92,49 @@ export const SYSTEM_ACTIVITY_TYPES: SeedActivityType[] = [
   { code: "zen_respiration", label: "Respiration / cohérence cardiaque", attributeCode: "ZEN", baseXp: 15, icon: "wind" },
   { code: "zen_gratitude", label: "3 gratitudes du jour", attributeCode: "ZEN", baseXp: 10, icon: "sparkles" },
 ];
+
+// ---------------------------------------------------------------------------
+// Succès (AVA-5) — du trivial au très rare
+// ---------------------------------------------------------------------------
+
+export interface SeedAchievement {
+  code: string;
+  title: string;
+  description: string;
+  rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
+  criteria: Record<string, unknown>;
+}
+
+export const SYSTEM_ACHIEVEMENTS: SeedAchievement[] = [
+  // Volume de logs
+  { code: "first_log", title: "Première pierre", description: "Ton premier log.", rarity: "common", criteria: { type: "logs_total", value: 1 } },
+  { code: "logs_10", title: "L'élan", description: "10 actions loggées.", rarity: "common", criteria: { type: "logs_total", value: 10 } },
+  { code: "logs_100", title: "Centurion", description: "100 actions loggées.", rarity: "uncommon", criteria: { type: "logs_total", value: 100 } },
+  { code: "logs_1000", title: "Encyclopédie vivante", description: "1 000 actions loggées.", rarity: "epic", criteria: { type: "logs_total", value: 1000 } },
+  { code: "busy_day", title: "Journée pleine", description: "5 logs dans la même journée.", rarity: "common", criteria: { type: "logs_one_day", value: 5 } },
+  // Niveaux
+  { code: "attr_5", title: "Spécialiste", description: "Un attribut au niveau 5.", rarity: "common", criteria: { type: "attr_level", value: 5 } },
+  { code: "attr_10", title: "Expert", description: "Un attribut au niveau 10.", rarity: "uncommon", criteria: { type: "attr_level", value: 10 } },
+  { code: "attr_25", title: "Maître", description: "Un attribut au niveau 25.", rarity: "epic", criteria: { type: "attr_level", value: 25 } },
+  { code: "attr_50", title: "Prestige", description: "Un attribut au niveau 50.", rarity: "legendary", criteria: { type: "attr_level", value: 50 } },
+  { code: "all_5", title: "Équilibre parfait", description: "Les 8 attributs au niveau 5.", rarity: "rare", criteria: { type: "attrs_all_level", value: 5 } },
+  { code: "all_10", title: "Octogone", description: "Les 8 attributs au niveau 10.", rarity: "epic", criteria: { type: "attrs_all_level", value: 10 } },
+  // Streaks
+  { code: "streak_7", title: "Une semaine sans lâcher", description: "Streak de 7 jours.", rarity: "common", criteria: { type: "streak_best", value: 7 } },
+  { code: "streak_30", title: "Le mois de fer", description: "Streak de 30 jours.", rarity: "rare", criteria: { type: "streak_best", value: 30 } },
+  { code: "streak_100", title: "Inarrêtable", description: "Streak de 100 jours.", rarity: "legendary", criteria: { type: "streak_best", value: 100 } },
+  // Quêtes
+  { code: "quest_1", title: "Aventurier", description: "Première quête accomplie.", rarity: "common", criteria: { type: "quests_completed", value: 1 } },
+  { code: "quest_25", title: "Chasseur de quêtes", description: "25 quêtes accomplies.", rarity: "uncommon", criteria: { type: "quests_completed", value: 25 } },
+  { code: "quest_100", title: "Héros du quotidien", description: "100 quêtes accomplies.", rarity: "epic", criteria: { type: "quests_completed", value: 100 } },
+  // LQI & check-ins
+  { code: "checkin_1", title: "Premier bilan", description: "Premier check-in hebdo.", rarity: "common", criteria: { type: "checkins_total", value: 1 } },
+  { code: "checkin_12", title: "Trimestre lucide", description: "12 check-ins hebdo.", rarity: "rare", criteria: { type: "checkins_total", value: 12 } },
+  { code: "lqi_70", title: "La belle vie", description: "LQI au-dessus de 70.", rarity: "rare", criteria: { type: "lqi_above", value: 70 } },
+  { code: "lqi_85", title: "Plénitude", description: "LQI au-dessus de 85.", rarity: "legendary", criteria: { type: "lqi_above", value: 85 } },
+  // Variété
+  { code: "week_8_attrs", title: "Touche-à-tout", description: "Les 8 attributs nourris dans la même semaine.", rarity: "uncommon", criteria: { type: "active_attrs_week", value: 8 } },
+  // Social
+  { code: "guild_join", title: "L'appel de la guilde", description: "Rejoindre une guilde.", rarity: "common", criteria: { type: "guild_member" } },
+  { code: "season_join", title: "Dans l'arène", description: "S'inscrire à une saison.", rarity: "common", criteria: { type: "season_member" } },
+];

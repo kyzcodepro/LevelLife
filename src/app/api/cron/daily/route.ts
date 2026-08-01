@@ -21,6 +21,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  // Lundi 00:00 (UTC) : reset des contributions de guilde (PRD §7.3).
+  if (new Date().getUTCDay() === 1) {
+    const { resetWeeklyContributions } = await import("@/lib/guildService");
+    await resetWeeklyContributions(db);
+  }
+
   const allUsers = await db
     .select()
     .from(users)

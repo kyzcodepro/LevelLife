@@ -92,9 +92,24 @@ les jalons M0 → M3 de la roadmap (🚩 MVP utilisable en solo).
 - [x] **EPIC 5 — LQI** : check-in hebdo, calcul (Gini / momentum), rétrospective
   + 3 insights, détecteur de sur-optimisation avec parcours de récupération
 - [x] Export RGPD self-service (`GET /api/export`)
+- [x] **M4 — Guildes** : création/adhésion (3-30 membres, publique ou sur
+  invitation), fil de logs partagés opt-in à réactions emoji uniquement,
+  objectif collectif hebdo avec barre de contribution, niveau de guilde,
+  modération (mute / exclusion, rôles chef/officier)
+- [x] **M5 — Arène** : saisons trimestrielles auto, ligues fermées de 30
+  joueurs de niveau proche (jamais de classement mondial), points de saison
+  suivant l'XP (l'XP total ne reset jamais) + **24 succès** seedés avec
+  déblocage automatique
+- [x] **M6 — Import CSV** de l'historique (XP recalculé par le moteur) +
+  cadre d'intégrations (tokens chiffrés en schéma ; OAuth Strava/GitHub/Fit
+  à brancher avec de vraies clés d'API)
+- [x] **M7 — Profil public** `/u/pseudo` (privé par défaut, granularité par
+  attribut, LQI jamais exposé), page réglages, suppression de compte en
+  2 clics
 
-**Reste (M4+)** : guildes, arène/saisons, intégrations (Strava, GitHub…),
-profils publics, paiements — voir PRD §13.
+**Reste** : intégrations OAuth réelles (clés requises), paiements Stripe
+(clés requises), saisie vocale LLM (CDX-6), chaînes de quêtes éditoriales,
+duels 1v1, PWA offline — voir PRD §13.
 
 ## Garde-fous éthiques appliqués (PRD §11)
 

@@ -10,7 +10,10 @@ const LINKS = [
   { href: "/timeline", label: "Timeline" },
   { href: "/stats", label: "Stats" },
   { href: "/quests", label: "Quêtes" },
+  { href: "/guilds", label: "Guilde" },
+  { href: "/arena", label: "Arène" },
   { href: "/retro", label: "Rétro" },
+  { href: "/settings", label: "Réglages" },
 ];
 
 export function AppNav({ username }: { username: string }) {

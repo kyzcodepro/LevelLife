@@ -5,8 +5,8 @@
 
 import { ATTRIBUTE_LIST } from "@/lib/attributes";
 import type { Db } from "./index";
-import { activityTypes, attributes } from "./schema";
-import { SYSTEM_ACTIVITY_TYPES } from "./seed-data";
+import { achievements, activityTypes, attributes } from "./schema";
+import { SYSTEM_ACHIEVEMENTS, SYSTEM_ACTIVITY_TYPES } from "./seed-data";
 
 export async function runSeed(db: Db): Promise<void> {
   console.log("Seed des 8 attributs…");
@@ -38,6 +38,19 @@ export async function runSeed(db: Db): Promise<void> {
         isSystem: true,
         icon: type.icon,
         userId: null,
+      })
+      .onConflictDoNothing();
+  }
+  console.log(`Seed des ${SYSTEM_ACHIEVEMENTS.length} succès…`);
+  for (const a of SYSTEM_ACHIEVEMENTS) {
+    await db
+      .insert(achievements)
+      .values({
+        code: a.code,
+        title: a.title,
+        description: a.description,
+        rarity: a.rarity,
+        criteria: a.criteria,
       })
       .onConflictDoNothing();
   }

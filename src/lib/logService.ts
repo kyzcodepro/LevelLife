@@ -441,6 +441,13 @@ export async function createLog(
       now,
     );
 
+    // Boucles sociales : contribution de guilde (M4) et points de saison (M5).
+    const totalAwarded = awards.reduce((s, a) => s + a.amount, 0);
+    const { contributeToGuild } = await import("@/lib/guildService");
+    await contributeToGuild(tx, user, totalAwarded);
+    const { addSeasonPoints } = await import("@/lib/arenaService");
+    await addSeasonPoints(tx, user.id, totalAwarded);
+
     return { log, awards, levelUps, completedQuests, streak };
   });
 }

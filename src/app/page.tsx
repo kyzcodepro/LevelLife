@@ -2,12 +2,14 @@ import Link from "next/link";
 import { desc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  achievements,
   habits,
   activityTypes,
   lqiScores,
   questInstances,
   quests,
   streaks,
+  userAchievements,
   userAttributes,
 } from "@/db/schema";
 import { currentUser } from "@/lib/session";
@@ -34,7 +36,7 @@ export default async function Home() {
   });
   if (!user.username || !profile?.attributeWeights) redirect("/onboarding");
 
-  const [attrs, userStreaks, activeQuests, lastLqi] = await Promise.all([
+  const [attrs, userStreaks, activeQuests, lastLqi, allAchievements, mineAchievements] = await Promise.all([
     db.select().from(userAttributes).where(eq(userAttributes.userId, user.id)),
     db
       .select({ streak: streaks, habit: habits, type: activityTypes })
@@ -59,7 +61,21 @@ export default async function Home() {
       .where(eq(lqiScores.userId, user.id))
       .orderBy(desc(lqiScores.weekStart))
       .limit(4),
+    db.select().from(achievements),
+    db
+      .select()
+      .from(userAchievements)
+      .where(eq(userAchievements.userId, user.id)),
   ]);
+
+  const unlockedIds = new Set(mineAchievements.map((a) => a.achievementId));
+  const rarityColor: Record<string, string> = {
+    common: "var(--muted)",
+    uncommon: "var(--attr-vit)",
+    rare: "var(--attr-int)",
+    epic: "var(--attr-cre)",
+    legendary: "var(--attr-fin)",
+  };
 
   const xpByCode = Object.fromEntries(
     attrs.map((a) => [a.attributeCode, a.xpTotal]),
@@ -223,6 +239,46 @@ export default async function Home() {
             )}
           </section>
         </div>
+
+        {/* Succès (AVA-5) */}
+        <section className="mt-6 rounded-2xl border border-border-default bg-surface p-6">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
+            Succès — {unlockedIds.size}/{allAchievements.length}
+          </h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {allAchievements.map((a) => {
+              const unlocked = unlockedIds.has(a.id);
+              return (
+                <div
+                  key={a.id}
+                  title={a.description ?? undefined}
+                  className={
+                    unlocked
+                      ? "rounded-xl border bg-surface-raised px-3 py-2"
+                      : "rounded-xl border border-border-default px-3 py-2 opacity-35"
+                  }
+                  style={
+                    unlocked
+                      ? { borderColor: rarityColor[a.rarity] }
+                      : undefined
+                  }
+                >
+                  <p
+                    className="truncate text-sm font-medium"
+                    style={
+                      unlocked ? { color: rarityColor[a.rarity] } : undefined
+                    }
+                  >
+                    {a.title}
+                  </p>
+                  <p className="truncate text-[11px] text-muted">
+                    {a.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       </main>
       <QuickLogFab />
     </>
