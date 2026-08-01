@@ -1,137 +1,95 @@
-"use client";
-
-/**
- * Fiche de personnage de démo (données mock) — vitrine du design system M0.
- * Le Quick Log simulé déclenche le vrai moteur XP (lib/xp.ts), le toast
- * et le level-up, en attendant la persistance (EPIC 2, ticket 7).
- */
-
-import { useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { desc, eq, and } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  habits,
+  activityTypes,
+  lqiScores,
+  questInstances,
+  quests,
+  streaks,
+  userAttributes,
+} from "@/db/schema";
+import { currentUser } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { profiles } from "@/db/schema";
 import {
   ATTRIBUTE_LIST,
-  ATTRIBUTES,
   type AttributeCode,
 } from "@/lib/attributes";
-import { computeXp, globalLevel, levelFromXp } from "@/lib/xp";
+import { globalLevel, levelFromXp } from "@/lib/xp";
+import { detectOverdrive } from "@/lib/overdrive";
+import { AppNav } from "@/components/AppNav";
+import { QuickLogFab } from "@/components/QuickLogFab";
 import { AttributeRadar } from "@/components/ui/AttributeRadar";
-import { LevelUpModal } from "@/components/ui/LevelUpModal";
 import { StatBar } from "@/components/ui/StatBar";
-import { XPToast, type XPToastData } from "@/components/ui/XPToast";
+import { Flame, Snowflake } from "lucide-react";
 
-const INITIAL_XP: Record<AttributeCode, number> = {
-  STR: 2450,
-  VIT: 1830,
-  INT: 4120,
-  DIS: 3260,
-  SOC: 920,
-  CRE: 5480,
-  FIN: 1410,
-  ZEN: 640,
-};
+export default async function Home() {
+  const user = await currentUser();
+  if (!user) return <Landing />;
 
-const WEIGHTS: Record<AttributeCode, number> = {
-  STR: 15,
-  VIT: 10,
-  INT: 15,
-  DIS: 15,
-  SOC: 10,
-  CRE: 20,
-  FIN: 5,
-  ZEN: 10,
-};
+  const profile = await db.query.profiles.findFirst({
+    where: eq(profiles.userId, user.id),
+  });
+  if (!user.username || !profile?.attributeWeights) redirect("/onboarding");
 
-const QUICK_ACTIONS: {
-  label: string;
-  attribute: AttributeCode;
-  baseXp: number;
-}[] = [
-  { label: "Musculation", attribute: "STR", baseXp: 45 },
-  { label: "Nuit de 7 h+", attribute: "VIT", baseXp: 25 },
-  { label: "Lecture", attribute: "INT", baseXp: 30 },
-  { label: "Deep work", attribute: "DIS", baseXp: 40 },
-  { label: "Appel famille", attribute: "SOC", baseXp: 20 },
-  { label: "Side-project", attribute: "CRE", baseXp: 40 },
-  { label: "Revue de budget", attribute: "FIN", baseXp: 25 },
-  { label: "Méditation", attribute: "ZEN", baseXp: 25 },
-];
+  const [attrs, userStreaks, activeQuests, lastLqi] = await Promise.all([
+    db.select().from(userAttributes).where(eq(userAttributes.userId, user.id)),
+    db
+      .select({ streak: streaks, habit: habits, type: activityTypes })
+      .from(streaks)
+      .innerJoin(habits, eq(streaks.habitId, habits.id))
+      .innerJoin(activityTypes, eq(habits.activityTypeId, activityTypes.id))
+      .where(eq(streaks.userId, user.id)),
+    db
+      .select({ instance: questInstances, quest: quests })
+      .from(questInstances)
+      .innerJoin(quests, eq(questInstances.questId, quests.id))
+      .where(
+        and(
+          eq(questInstances.userId, user.id),
+          eq(questInstances.status, "active"),
+        ),
+      )
+      .limit(3),
+    db
+      .select()
+      .from(lqiScores)
+      .where(eq(lqiScores.userId, user.id))
+      .orderBy(desc(lqiScores.weekStart))
+      .limit(4),
+  ]);
 
-export default function Home() {
-  const [xp, setXp] = useState(INITIAL_XP);
-  const [toast, setToast] = useState<XPToastData | null>(null);
-  const [levelUp, setLevelUp] = useState<{
-    attribute: AttributeCode;
-    newLevel: number;
-  } | null>(null);
-  const logCounts = useRef<Partial<Record<AttributeCode, number>>>({});
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const progress = useMemo(() => {
-    const entries = {} as Record<
-      AttributeCode,
-      ReturnType<typeof levelFromXp>
-    >;
-    for (const attr of ATTRIBUTE_LIST) {
-      entries[attr.code] = levelFromXp(xp[attr.code]);
-    }
-    return entries;
-  }, [xp]);
-
-  const levels = useMemo(() => {
-    const out = {} as Record<AttributeCode, number>;
-    for (const attr of ATTRIBUTE_LIST) out[attr.code] = progress[attr.code].level;
-    return out;
-  }, [progress]);
-
-  const global = globalLevel(levels, WEIGHTS);
-
-  const quickLog = useCallback(
-    (action: (typeof QUICK_ACTIONS)[number]) => {
-      const n = (logCounts.current[action.attribute] ?? 0) + 1;
-      logCounts.current[action.attribute] = n;
-
-      const before = levelFromXp(xp[action.attribute]).level;
-      const result = computeXp({
-        baseXp: action.baseXp,
-        logsOfTypeLast24h: n,
-        attributeLevel: before,
-        xpEarnedTodayForAttribute: 0,
-      });
-      const nextXp = xp[action.attribute] + result.awarded;
-      const after = levelFromXp(nextXp).level;
-
-      setXp((prev) => ({ ...prev, [action.attribute]: nextXp }));
-      setToast({
-        id: Date.now(),
-        amount: result.awarded,
-        attribute: action.attribute,
-      });
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      toastTimer.current = setTimeout(() => setToast(null), 4000);
-
-      if (after > before) {
-        setLevelUp({ attribute: action.attribute, newLevel: after });
-      }
-    },
-    [xp],
-  );
+  const xpByCode = Object.fromEntries(
+    attrs.map((a) => [a.attributeCode, a.xpTotal]),
+  ) as Record<AttributeCode, number>;
+  const levels = Object.fromEntries(
+    ATTRIBUTE_LIST.map((a) => [
+      a.code,
+      levelFromXp(xpByCode[a.code] ?? 0).level,
+    ]),
+  ) as Record<AttributeCode, number>;
+  const weights = (profile.attributeWeights ?? {}) as Record<string, number>;
+  const global = globalLevel(levels, weights);
+  const overdrive = await detectOverdrive(db, user.id, user.timezone);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      {/* En-tête */}
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="mb-1 text-sm font-semibold uppercase tracking-[0.3em] text-accent">
-            Ascend
-          </p>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold sm:text-4xl">
-            Fiche de personnage
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Démo M0 — design system + moteur XP réel, données mock.
-          </p>
-        </div>
-        <div className="flex items-center gap-4 rounded-2xl border border-border-default bg-surface px-6 py-4">
-          <div className="text-right">
+    <>
+      <AppNav username={user.username} />
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">
+              {user.username}
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              {lastLqi[0]
+                ? `LQI ${Number(lastLqi[0].total).toFixed(0)} / 100 — privé, visible par toi seulement`
+                : "Fais ton premier check-in hebdo pour obtenir ton LQI."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border-default bg-surface px-6 py-4 text-right">
             <p className="text-xs uppercase tracking-wider text-muted">
               Niveau global
             </p>
@@ -139,83 +97,157 @@ export default function Home() {
               {global}
             </p>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Radar */}
-        <section className="rounded-2xl border border-border-default bg-surface p-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-            Attributs
-          </h2>
-          <AttributeRadar levels={levels} />
-        </section>
-
-        {/* Barres */}
-        <section className="rounded-2xl border border-border-default bg-surface p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
-            Progression
-          </h2>
-          <div className="flex flex-col gap-4">
-            {ATTRIBUTE_LIST.map((attr) => {
-              const p = progress[attr.code];
-              return (
-                <StatBar
-                  key={attr.code}
-                  attribute={attr.code}
-                  level={p.level}
-                  progress={p.progress}
-                  xpIntoLevel={p.xpIntoLevel}
-                  xpForNextLevel={p.xpForNextLevel}
-                />
-              );
-            })}
+        {overdrive.flagged && (
+          <div className="mb-6 rounded-2xl border border-attr-dis bg-attr-dis/10 px-5 py-4">
+            <p className="font-semibold">⚠️ Sur-optimisation détectée</p>
+            <p className="mt-1 text-sm text-muted">
+              Ton XP grimpe mais ton LQI baisse depuis 3 semaines. Le grind
+              vide ne compte pas : une quête de récupération t'attend dans{" "}
+              <Link href="/quests" className="text-accent underline">
+                tes quêtes
+              </Link>
+              .
+            </p>
           </div>
-        </section>
-      </div>
+        )}
 
-      {/* Quick Log simulé */}
-      <section className="mt-6 rounded-2xl border border-border-default bg-surface p-6">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-            Quick Log
-          </h2>
-          <p className="text-xs text-muted">
-            2 taps = loggé · diminishing returns actifs (re-cliquez pour voir)
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => quickLog(action)}
-              className="group rounded-xl border border-border-default bg-surface-raised px-4 py-3 text-left transition-all hover:border-accent hover:bg-accent-soft"
-            >
-              <span
-                className="stat-number block text-xs font-bold"
-                style={{ color: ATTRIBUTES[action.attribute].color }}
-              >
-                {ATTRIBUTES[action.attribute].code}
-              </span>
-              <span className="mt-1 block truncate text-sm font-medium">
-                {action.label}
-              </span>
-              <span className="mt-0.5 block text-xs text-muted">
-                ~{action.baseXp} XP
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-2xl border border-border-default bg-surface p-6">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+              Attributs
+            </h2>
+            <AttributeRadar levels={levels} />
+          </section>
 
-      <XPToast toast={toast} onUndo={() => setToast(null)} />
-      <LevelUpModal
-        open={levelUp !== null}
-        attribute={levelUp?.attribute ?? "STR"}
-        newLevel={levelUp?.newLevel ?? 1}
-        onClose={() => setLevelUp(null)}
-      />
+          <section className="rounded-2xl border border-border-default bg-surface p-6">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
+              Progression
+            </h2>
+            <div className="flex flex-col gap-4">
+              {ATTRIBUTE_LIST.map((attr) => {
+                const p = levelFromXp(xpByCode[attr.code] ?? 0);
+                return (
+                  <StatBar
+                    key={attr.code}
+                    attribute={attr.code}
+                    level={p.level}
+                    progress={p.progress}
+                    xpIntoLevel={p.xpIntoLevel}
+                    xpForNextLevel={p.xpForNextLevel}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          {/* Streaks */}
+          <section className="rounded-2xl border border-border-default bg-surface p-6">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
+              Habitudes
+            </h2>
+            {userStreaks.length === 0 ? (
+              <p className="text-sm text-muted">
+                Aucune habitude suivie pour l'instant.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {userStreaks.map(({ streak, type }) => (
+                  <li
+                    key={streak.id}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-sm">{type.label}</span>
+                    <span className="flex items-center gap-3 text-sm">
+                      <span className="flex items-center gap-1 text-attr-dis">
+                        <Flame size={14} />
+                        <span className="stat-number font-bold">
+                          {streak.current}
+                        </span>
+                      </span>
+                      <span className="text-muted">
+                        {streak.lifetimeTotal} j au total
+                      </span>
+                      <span className="flex items-center gap-1 text-attr-zen">
+                        <Snowflake size={13} />
+                        {streak.freezesLeft}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Quêtes actives */}
+          <section className="rounded-2xl border border-border-default bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+                Quêtes actives
+              </h2>
+              <Link href="/quests" className="text-xs text-accent">
+                Tout voir →
+              </Link>
+            </div>
+            {activeQuests.length === 0 ? (
+              <p className="text-sm text-muted">
+                Tes quêtes du jour t'attendent sur la page{" "}
+                <Link href="/quests" className="text-accent underline">
+                  Quêtes
+                </Link>
+                .
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {activeQuests.map(({ instance, quest }) => {
+                  const progress = (instance.progress ?? {}) as {
+                    current?: number;
+                    target?: number;
+                  };
+                  return (
+                    <li key={instance.id} className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <span>{quest.title}</span>
+                        <span className="stat-number text-xs text-muted">
+                          {progress.current ?? 0}/{progress.target ?? 1} · +
+                          {quest.xpReward} XP
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </div>
+      </main>
+      <QuickLogFab />
+    </>
+  );
+}
+
+function Landing() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
+      <p className="mb-2 text-sm font-semibold uppercase tracking-[0.4em] text-accent">
+        Ascend
+      </p>
+      <h1 className="max-w-xl font-[family-name:var(--font-space-grotesk)] text-4xl font-bold sm:text-5xl">
+        Level up ta vraie vie.
+      </h1>
+      <p className="mt-4 max-w-md text-muted">
+        Répertorie tes actions, vois ta progression en attributs et niveaux,
+        améliore ta qualité de vie mesurée — pas juste ton XP.
+      </p>
+      <Link
+        href="/login"
+        className="mt-8 rounded-xl bg-accent px-8 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+      >
+        Commencer
+      </Link>
     </main>
   );
 }
