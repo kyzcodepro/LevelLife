@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens ASCEND (PRD §8)
+   Sombre, dense, néon contenu — entre le dashboard Steam et une fiche de RPG.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0d12;
+  --surface: #141822;
+  --surface-raised: #1b2130;
+  --border: #232a3b;
+  --foreground: #e7eaf2;
+  --muted: #8b93a7;
+  --accent: #7c5cff;
+  --accent-soft: rgba(124, 92, 255, 0.15);
+
+  /* Une couleur par attribut */
+  --attr-str: #f87171;
+  --attr-vit: #34d399;
+  --attr-int: #60a5fa;
+  --attr-dis: #fb923c;
+  --attr-soc: #f472b6;
+  --attr-cre: #c084fc;
+  --attr-fin: #facc15;
+  --attr-zen: #2dd4bf;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border-default: var(--border);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-attr-str: var(--attr-str);
+  --color-attr-vit: var(--attr-vit);
+  --color-attr-int: var(--attr-int);
+  --color-attr-dis: var(--attr-dis);
+  --color-attr-soc: var(--attr-soc);
+  --color-attr-cre: var(--attr-cre);
+  --color-attr-fin: var(--attr-fin);
+  --color-attr-zen: var(--attr-zen);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Les chiffres sont les héros : gros, tabulaires, en display. */
+.stat-number {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }

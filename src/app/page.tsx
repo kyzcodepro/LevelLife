@@ -1,103 +1,221 @@
-import Image from "next/image";
+"use client";
+
+/**
+ * Fiche de personnage de démo (données mock) — vitrine du design system M0.
+ * Le Quick Log simulé déclenche le vrai moteur XP (lib/xp.ts), le toast
+ * et le level-up, en attendant la persistance (EPIC 2, ticket 7).
+ */
+
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  ATTRIBUTE_LIST,
+  ATTRIBUTES,
+  type AttributeCode,
+} from "@/lib/attributes";
+import { computeXp, globalLevel, levelFromXp } from "@/lib/xp";
+import { AttributeRadar } from "@/components/ui/AttributeRadar";
+import { LevelUpModal } from "@/components/ui/LevelUpModal";
+import { StatBar } from "@/components/ui/StatBar";
+import { XPToast, type XPToastData } from "@/components/ui/XPToast";
+
+const INITIAL_XP: Record<AttributeCode, number> = {
+  STR: 2450,
+  VIT: 1830,
+  INT: 4120,
+  DIS: 3260,
+  SOC: 920,
+  CRE: 5480,
+  FIN: 1410,
+  ZEN: 640,
+};
+
+const WEIGHTS: Record<AttributeCode, number> = {
+  STR: 15,
+  VIT: 10,
+  INT: 15,
+  DIS: 15,
+  SOC: 10,
+  CRE: 20,
+  FIN: 5,
+  ZEN: 10,
+};
+
+const QUICK_ACTIONS: {
+  label: string;
+  attribute: AttributeCode;
+  baseXp: number;
+}[] = [
+  { label: "Musculation", attribute: "STR", baseXp: 45 },
+  { label: "Nuit de 7 h+", attribute: "VIT", baseXp: 25 },
+  { label: "Lecture", attribute: "INT", baseXp: 30 },
+  { label: "Deep work", attribute: "DIS", baseXp: 40 },
+  { label: "Appel famille", attribute: "SOC", baseXp: 20 },
+  { label: "Side-project", attribute: "CRE", baseXp: 40 },
+  { label: "Revue de budget", attribute: "FIN", baseXp: 25 },
+  { label: "Méditation", attribute: "ZEN", baseXp: 25 },
+];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [xp, setXp] = useState(INITIAL_XP);
+  const [toast, setToast] = useState<XPToastData | null>(null);
+  const [levelUp, setLevelUp] = useState<{
+    attribute: AttributeCode;
+    newLevel: number;
+  } | null>(null);
+  const logCounts = useRef<Partial<Record<AttributeCode, number>>>({});
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const progress = useMemo(() => {
+    const entries = {} as Record<
+      AttributeCode,
+      ReturnType<typeof levelFromXp>
+    >;
+    for (const attr of ATTRIBUTE_LIST) {
+      entries[attr.code] = levelFromXp(xp[attr.code]);
+    }
+    return entries;
+  }, [xp]);
+
+  const levels = useMemo(() => {
+    const out = {} as Record<AttributeCode, number>;
+    for (const attr of ATTRIBUTE_LIST) out[attr.code] = progress[attr.code].level;
+    return out;
+  }, [progress]);
+
+  const global = globalLevel(levels, WEIGHTS);
+
+  const quickLog = useCallback(
+    (action: (typeof QUICK_ACTIONS)[number]) => {
+      const n = (logCounts.current[action.attribute] ?? 0) + 1;
+      logCounts.current[action.attribute] = n;
+
+      const before = levelFromXp(xp[action.attribute]).level;
+      const result = computeXp({
+        baseXp: action.baseXp,
+        logsOfTypeLast24h: n,
+        attributeLevel: before,
+        xpEarnedTodayForAttribute: 0,
+      });
+      const nextXp = xp[action.attribute] + result.awarded;
+      const after = levelFromXp(nextXp).level;
+
+      setXp((prev) => ({ ...prev, [action.attribute]: nextXp }));
+      setToast({
+        id: Date.now(),
+        amount: result.awarded,
+        attribute: action.attribute,
+      });
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 4000);
+
+      if (after > before) {
+        setLevelUp({ attribute: action.attribute, newLevel: after });
+      }
+    },
+    [xp],
+  );
+
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      {/* En-tête */}
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="mb-1 text-sm font-semibold uppercase tracking-[0.3em] text-accent">
+            Ascend
+          </p>
+          <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold sm:text-4xl">
+            Fiche de personnage
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Démo M0 — design system + moteur XP réel, données mock.
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="flex items-center gap-4 rounded-2xl border border-border-default bg-surface px-6 py-4">
+          <div className="text-right">
+            <p className="text-xs uppercase tracking-wider text-muted">
+              Niveau global
+            </p>
+            <p className="stat-number text-5xl font-bold text-accent">
+              {global}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Radar */}
+        <section className="rounded-2xl border border-border-default bg-surface p-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+            Attributs
+          </h2>
+          <AttributeRadar levels={levels} />
+        </section>
+
+        {/* Barres */}
+        <section className="rounded-2xl border border-border-default bg-surface p-6">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
+            Progression
+          </h2>
+          <div className="flex flex-col gap-4">
+            {ATTRIBUTE_LIST.map((attr) => {
+              const p = progress[attr.code];
+              return (
+                <StatBar
+                  key={attr.code}
+                  attribute={attr.code}
+                  level={p.level}
+                  progress={p.progress}
+                  xpIntoLevel={p.xpIntoLevel}
+                  xpForNextLevel={p.xpForNextLevel}
+                />
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* Quick Log simulé */}
+      <section className="mt-6 rounded-2xl border border-border-default bg-surface p-6">
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+            Quick Log
+          </h2>
+          <p className="text-xs text-muted">
+            2 taps = loggé · diminishing returns actifs (re-cliquez pour voir)
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => quickLog(action)}
+              className="group rounded-xl border border-border-default bg-surface-raised px-4 py-3 text-left transition-all hover:border-accent hover:bg-accent-soft"
+            >
+              <span
+                className="stat-number block text-xs font-bold"
+                style={{ color: ATTRIBUTES[action.attribute].color }}
+              >
+                {ATTRIBUTES[action.attribute].code}
+              </span>
+              <span className="mt-1 block truncate text-sm font-medium">
+                {action.label}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                ~{action.baseXp} XP
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <XPToast toast={toast} onUndo={() => setToast(null)} />
+      <LevelUpModal
+        open={levelUp !== null}
+        attribute={levelUp?.attribute ?? "STR"}
+        newLevel={levelUp?.newLevel ?? 1}
+        onClose={() => setLevelUp(null)}
+      />
+    </main>
   );
 }

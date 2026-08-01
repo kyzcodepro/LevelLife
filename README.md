@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ASCEND
 
-## Getting Started
+> Transformer la vie réelle en une progression lisible, mesurable et partagée — avec les codes du jeu vidéo, mais avec des gains réels.
 
-First, run the development server:
+Plateforme communautaire de progression de vie (Life RPG). Voir le PRD pour la vision complète : Codex (saisir), Avatar (voir), Quêtes (agir), Guilde (partager), Arène (rivaliser), le tout propulsé par un moteur XP + LQI (Life Quality Index).
+
+## Stack
+
+- **Next.js 15** (App Router) + TypeScript + Tailwind CSS v4
+- **Drizzle ORM** + PostgreSQL (Neon / Supabase, région EU)
+- **Recharts** (radar, courbes) + **Framer Motion** (feedback XP, level-up)
+- **Vitest** (moteur XP couvert par tests unitaires)
+
+## Démarrage
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env        # renseigner DATABASE_URL
+pnpm db:migrate             # applique les migrations Drizzle
+pnpm db:seed                # 8 attributs + 60 types d'activité
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sans base de données, `pnpm dev` fonctionne quand même : la page d'accueil est une fiche de personnage de démo (données mock) branchée sur le vrai moteur XP.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Commande | Effet |
+|---|---|
+| `pnpm dev` | Serveur de développement |
+| `pnpm test` | Tests unitaires (moteur XP) |
+| `pnpm db:generate` | Génère une migration depuis `src/db/schema.ts` |
+| `pnpm db:migrate` | Applique les migrations |
+| `pnpm db:seed` | Seed idempotent (attributs + types d'activité) |
+| `pnpm db:studio` | Drizzle Studio |
 
-## Learn More
+## Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+  app/                  # App Router (layout, page démo)
+  components/ui/        # Design system : StatBar, AttributeRadar, XPToast, LevelUpModal
+  db/
+    schema.ts           # Schéma Drizzle complet (PRD §7.2)
+    seed.ts             # Seed 8 attributs + 60 activity types
+  lib/
+    attributes.ts       # Les 8 attributs (codes, couleurs, domaines)
+    xp.ts               # Moteur XP : formule, diminishing, plafonds, niveaux
+    xp.test.ts          # Tests unitaires du moteur
+drizzle/                # Migrations SQL générées
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Le moteur XP (PRD §5)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+xp = base × intensity (0.5–2.0) × quality (0.8–1.3)
+          × streak_mult (≤ 1.5) × diminishing(n)
 
-## Deploy on Vercel
+diminishing(n) = 1 / (1 + 0.35 × (n − 1))
+plafond journalier / attribut = 120 + 15 × niveau
+xp_requis(niveau n → n+1) = round(100 × n^1.5)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Le calcul est pur et déterministe (`src/lib/xp.ts`) : les `xp_events` stockent les multiplicateurs appliqués, ce qui permet un recalcul idempotent si les `base_xp` sont rééquilibrés.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## État d'avancement (roadmap PRD §13)
+
+- [x] **M0 — Fondations** (partiel) : init Next.js + TS + Tailwind, schéma Drizzle + migrations + seed, design tokens, composants `StatBar` / `AttributeRadar` / `XPToast` / `LevelUpModal`
+- [x] **EPIC 2, ticket 6** : `lib/xp.ts` + tests
+- [ ] Auth.js (magic link + Google + Discord)
+- [ ] Onboarding 4 écrans
+- [ ] `POST /api/logs` transactionnel (log → xp_events → user_attributes → level-up)
+- [ ] Quick Log persistant, timeline, quêtes, LQI…
