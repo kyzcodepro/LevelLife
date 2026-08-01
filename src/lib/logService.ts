@@ -260,11 +260,12 @@ async function progressQuests(
       manual?: boolean;
     };
     if (target.manual) continue;
+    // Sans cible précise, la quête compte tous les logs (« 3 actions aujourd'hui »).
     const matches = target.activityTypeCode
       ? target.activityTypeCode === activityTypeCode
       : target.attributeCode
         ? attributeCodes.includes(target.attributeCode as AttributeCode)
-        : false;
+        : true;
     if (!matches) continue;
 
     const progress = (instance.progress ?? {}) as { current?: number };
