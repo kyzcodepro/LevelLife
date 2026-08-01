@@ -45,6 +45,8 @@ export function TimelineClient() {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
+  // Garde synchrone contre les fetches concurrents (l'état `loading` est asynchrone).
+  const inFlight = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => setQDebounced(q), 300);
@@ -53,12 +55,15 @@ export function TimelineClient() {
 
   const load = useCallback(
     async (reset: boolean, currentCursor: string | null) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       setLoading(true);
       const params = new URLSearchParams({ limit: "25" });
       if (!reset && currentCursor) params.set("cursor", currentCursor);
       if (attribute) params.set("attribute", attribute);
       if (qDebounced) params.set("q", qDebounced);
       const res = await fetch(`/api/logs?${params}`);
+      inFlight.current = false;
       setLoading(false);
       if (!res.ok) return;
       const data = await res.json();
@@ -82,10 +87,11 @@ export function TimelineClient() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // Charge la page suivante quand la sentinelle devient visible.
+  // Charge la page suivante quand la sentinelle devient visible
+  // (jamais avant la première page : le chargement initial s'en charge).
   useEffect(() => {
     const last = virtualItems[virtualItems.length - 1];
-    if (!last) return;
+    if (!last || items.length === 0) return;
     if (last.index >= items.length && hasMore && !loading) {
       load(false, cursor);
     }

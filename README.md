@@ -15,38 +15,50 @@ Plateforme communautaire de progression de vie (Life RPG). Voir le PRD pour la v
 
 ```bash
 pnpm install
-cp .env.example .env        # renseigner DATABASE_URL
-pnpm db:migrate             # applique les migrations Drizzle
-pnpm db:seed                # 8 attributs + 60 types d'activité
+pnpm db:setup               # migrations + seed (PGlite embarqué — zéro infra)
 pnpm dev
 ```
 
-Sans base de données, `pnpm dev` fonctionne quand même : la page d'accueil est une fiche de personnage de démo (données mock) branchée sur le vrai moteur XP.
+**Aucune base de données à installer** : sans `DATABASE_URL`, l'app utilise PGlite
+(Postgres embarqué, persisté dans `.pglite/`). En production, renseigner
+`DATABASE_URL` (Neon/Supabase, région EU) — voir `.env.example`.
+
+Connexion : hors production (ou avec `ALLOW_DEV_LOGIN=1`), un pseudo suffit —
+compte créé à la volée. Les OAuth Google/Discord s'activent via les variables
+`AUTH_GOOGLE_*` / `AUTH_DISCORD_*`.
 
 ## Scripts
 
 | Commande | Effet |
 |---|---|
 | `pnpm dev` | Serveur de développement |
-| `pnpm test` | Tests unitaires (moteur XP) |
+| `pnpm test` | Tests unitaires + intégration (69 tests) |
+| `pnpm db:setup` | Migrations + seed en une commande |
 | `pnpm db:generate` | Génère une migration depuis `src/db/schema.ts` |
-| `pnpm db:migrate` | Applique les migrations |
 | `pnpm db:seed` | Seed idempotent (attributs + types d'activité) |
+| `pnpm xp:recalc` | Rejoue l'XP après rééquilibrage des `base_xp` |
 | `pnpm db:studio` | Drizzle Studio |
 
 ## Structure
 
 ```
 src/
-  app/                  # App Router (layout, page démo)
-  components/ui/        # Design system : StatBar, AttributeRadar, XPToast, LevelUpModal
-  db/
-    schema.ts           # Schéma Drizzle complet (PRD §7.2)
-    seed.ts             # Seed 8 attributs + 60 activity types
+  app/
+    page.tsx            # Landing publique / fiche de personnage (dashboard)
+    login/ onboarding/  # Auth.js + onboarding 4 écrans
+    timeline/ stats/    # Timeline virtualisée, heatmap + courbes
+    quests/ checkin/ retro/
+    api/                # logs, quests, habits, checkins, stats, cron, export…
+  components/           # AppNav, QuickLogFab, LogFormModal
+  components/ui/        # StatBar, AttributeRadar, XPToast, LevelUpModal
+  db/                   # schéma Drizzle complet (PRD §7.2), client dual-driver, seed
   lib/
-    attributes.ts       # Les 8 attributs (codes, couleurs, domaines)
-    xp.ts               # Moteur XP : formule, diminishing, plafonds, niveaux
-    xp.test.ts          # Tests unitaires du moteur
+    xp.ts               # Moteur XP (formule, diminishing, plafonds, niveaux)
+    logService.ts       # Création/annulation de log transactionnelle
+    recalc.ts           # Recalcul idempotent (rejeu des multiplicateurs)
+    questEngine.ts      # Génération de quêtes à base de règles
+    lqi.ts              # LQI : Gini, subjectif, momentum, insights
+    overdrive.ts        # Détecteur XP↑ / LQI↓ (anti grind vide)
 drizzle/                # Migrations SQL générées
 ```
 
@@ -63,11 +75,30 @@ xp_requis(niveau n → n+1) = round(100 × n^1.5)
 
 Le calcul est pur et déterministe (`src/lib/xp.ts`) : les `xp_events` stockent les multiplicateurs appliqués, ce qui permet un recalcul idempotent si les `base_xp` sont rééquilibrés.
 
-## État d'avancement (roadmap PRD §13)
+## État d'avancement
 
-- [x] **M0 — Fondations** (partiel) : init Next.js + TS + Tailwind, schéma Drizzle + migrations + seed, design tokens, composants `StatBar` / `AttributeRadar` / `XPToast` / `LevelUpModal`
-- [x] **EPIC 2, ticket 6** : `lib/xp.ts` + tests
-- [ ] Auth.js (magic link + Google + Discord)
-- [ ] Onboarding 4 écrans
-- [ ] `POST /api/logs` transactionnel (log → xp_events → user_attributes → level-up)
-- [ ] Quick Log persistant, timeline, quêtes, LQI…
+**Backlog de démarrage du PRD (§15) : les 20 tickets sont implémentés** — soit
+les jalons M0 → M3 de la roadmap (🚩 MVP utilisable en solo).
+
+- [x] **EPIC 1 — Fondations** : Next.js 15 + TS + Tailwind, schéma Drizzle +
+  migrations + seed (8 attributs, 61 types), Auth.js (OAuth conditionnel +
+  connexion dev), design system, onboarding 4 écrans
+- [x] **EPIC 2 — Moteur XP** : `lib/xp.ts` testé, `POST /api/logs`
+  transactionnel avec level-up, recalcul idempotent (`pnpm xp:recalc`)
+- [x] **EPIC 3 — Codex** : Quick Log FAB (undo 10 s), formulaire détaillé +
+  photo, timeline virtualisée, heatmap + courbes
+- [x] **EPIC 4 — Quêtes** : moteur à règles, cron journalier, UI complète,
+  habitudes + streaks + Mode Repos (2 gels/mois)
+- [x] **EPIC 5 — LQI** : check-in hebdo, calcul (Gini / momentum), rétrospective
+  + 3 insights, détecteur de sur-optimisation avec parcours de récupération
+- [x] Export RGPD self-service (`GET /api/export`)
+
+**Reste (M4+)** : guildes, arène/saisons, intégrations (Strava, GitHub…),
+profils publics, paiements — voir PRD §13.
+
+## Garde-fous éthiques appliqués (PRD §11)
+
+Pas de classement mondial, LQI strictement privé, pas de streak-shaming
+(total cumulé affiché, Mode Repos gratuit), détection de sur-optimisation
+(le grind vide réduit les quêtes et impose la récupération), notifications
+jamais culpabilisantes, export et données privées par défaut.
