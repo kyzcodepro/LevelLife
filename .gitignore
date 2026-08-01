@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Base locale PGlite
+.pglite/
+
+# Uploads locaux (driver de stockage dev)
+public/uploads/

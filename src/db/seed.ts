@@ -1,22 +1,14 @@
 /**
  * Seed idempotent : 8 attributs + 60 types d'activité système.
- * Usage : pnpm db:seed (nécessite DATABASE_URL).
+ * Usage : pnpm db:seed (ou pnpm db:setup pour migrations + seed).
  */
 
-import "dotenv/config";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { ATTRIBUTE_LIST } from "@/lib/attributes";
+import type { Db } from "./index";
 import { activityTypes, attributes } from "./schema";
 import { SYSTEM_ACTIVITY_TYPES } from "./seed-data";
 
-async function main() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL manquant — voir .env.example");
-
-  const client = postgres(url, { prepare: false, max: 1 });
-  const db = drizzle(client);
-
+export async function runSeed(db: Db): Promise<void> {
   console.log("Seed des 8 attributs…");
   for (const attr of ATTRIBUTE_LIST) {
     await db
@@ -49,12 +41,5 @@ async function main() {
       })
       .onConflictDoNothing();
   }
-
   console.log("Seed terminé.");
-  await client.end();
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
