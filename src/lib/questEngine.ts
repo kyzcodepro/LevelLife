@@ -116,10 +116,15 @@ export function pickDailyQuests(ctx: DailyContext): QuestSpec[] {
       c !== familiar?.attributeCode,
   );
   if (dormant) {
+    const neverTouched = (ctx.xpByAttribute[dormant] ?? 0) === 0;
     specs.push({
       templateKey: "daily_variety",
-      title: `Réveille ${ATTRIBUTES[dormant].name}`,
-      description: `Aucun log ${ATTRIBUTES[dormant].name.toLowerCase()} depuis une semaine.`,
+      title: neverTouched
+        ? `Découvre ${ATTRIBUTES[dormant].name}`
+        : `Réveille ${ATTRIBUTES[dormant].name}`,
+      description: neverTouched
+        ? `Domaine encore vierge — une première action ${ATTRIBUTES[dormant].name.toLowerCase()} suffit pour l'ouvrir.`
+        : `Aucun log ${ATTRIBUTES[dormant].name.toLowerCase()} depuis une semaine.`,
       target: { attributeCode: dormant, count: 1 },
       xpReward: 25,
     });

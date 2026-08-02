@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ATTRIBUTES, type AttributeCode } from "@/lib/attributes";
+import { Confetti } from "./Confetti";
 
 interface LevelUpModalProps {
   open: boolean;
@@ -12,8 +13,8 @@ interface LevelUpModalProps {
 }
 
 /**
- * Animation de level-up plein écran — < 1,5 s, skippable (PRD §8).
- * Se ferme au clic, à Échap, ou automatiquement après 1,5 s.
+ * Level-up plein écran : rayons tournants, confettis, chiffre qui claque.
+ * < 2 s, skippable au clic ou à Échap (PRD §8).
  */
 export function LevelUpModal({
   open,
@@ -25,7 +26,7 @@ export function LevelUpModal({
 
   useEffect(() => {
     if (!open) return;
-    const timer = setTimeout(onClose, 1500);
+    const timer = setTimeout(onClose, 1900);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -47,37 +48,55 @@ export function LevelUpModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-background/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-background/90 backdrop-blur-sm"
         >
+          {/* Rayons tournants */}
+          <div
+            className="rays-spin pointer-events-none absolute h-[140vmax] w-[140vmax]"
+            style={{
+              background: `repeating-conic-gradient(from 0deg, ${def.color}14 0deg 12deg, transparent 12deg 24deg)`,
+            }}
+          />
+          {/* Halo */}
           <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.1, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 18 }}
-            className="flex flex-col items-center gap-2 text-center"
+            className="pointer-events-none absolute h-96 w-96 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${def.color}40 0%, transparent 65%)`,
+            }}
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1.6, opacity: 1 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+          />
+
+          <motion.div
+            initial={{ scale: 0.3, opacity: 0, rotate: -6 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            exit={{ scale: 1.15, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 16 }}
+            className="relative flex flex-col items-center gap-2 text-center"
           >
-            <span
-              className="text-sm font-semibold uppercase tracking-[0.3em]"
+            <Confetti count={30} />
+            <motion.span
+              initial={{ letterSpacing: "0.6em", opacity: 0 }}
+              animate={{ letterSpacing: "0.3em", opacity: 1 }}
+              transition={{ delay: 0.15, duration: 0.4 }}
+              className="text-sm font-semibold uppercase"
               style={{ color: def.color }}
             >
               Level up
-            </span>
-            <span className="stat-number text-8xl font-bold leading-none">
+            </motion.span>
+            <motion.span
+              className="stat-number text-9xl font-bold leading-none"
+              animate={{ scale: [1, 1.12, 1] }}
+              transition={{ delay: 0.35, duration: 0.5 }}
+              style={{ textShadow: `0 0 48px ${def.color}88` }}
+            >
               {newLevel}
-            </span>
+            </motion.span>
             <span className="text-lg text-muted">
               {def.name} atteint le niveau {newLevel}
             </span>
           </motion.div>
-          <motion.div
-            className="absolute inset-x-0 top-1/2 -z-10 h-64 -translate-y-1/2"
-            style={{
-              background: `radial-gradient(ellipse at center, ${def.color}33 0%, transparent 70%)`,
-            }}
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1.4 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          />
         </motion.div>
       )}
     </AnimatePresence>

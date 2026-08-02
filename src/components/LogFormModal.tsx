@@ -1,14 +1,19 @@
 "use client";
 
 /**
- * Ticket 10 — formulaire de log détaillé : type, durée, intensité, qualité,
- * humeur, note, tags, photo (upload local en dev, S3/R2 en prod).
+ * Ticket 10 — formulaire de log détaillé, version intuitive :
+ * tous les types visibles, groupés par attribut, filtres par attribut,
+ * recherche sur libellé + code + nom d'attribut (« vit » trouve la Vitalité).
  */
 
 import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ImagePlus, X } from "lucide-react";
-import { ATTRIBUTES, type AttributeCode } from "@/lib/attributes";
+import {
+  ATTRIBUTE_LIST,
+  ATTRIBUTES,
+  type AttributeCode,
+} from "@/lib/attributes";
 import { cn } from "@/lib/utils";
 
 export interface ActivityTypeOption {
@@ -29,6 +34,13 @@ interface LogFormModalProps {
 
 const MOODS = ["😞", "😕", "😐", "🙂", "🤩"];
 
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
 export function LogFormModal({
   open,
   types,
@@ -36,6 +48,7 @@ export function LogFormModal({
   onCreated,
 }: LogFormModalProps) {
   const [search, setSearch] = useState("");
+  const [attrFilter, setAttrFilter] = useState<AttributeCode | null>(null);
   const [typeId, setTypeId] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | "">("");
   const [intensity, setIntensity] = useState(1);
@@ -49,12 +62,32 @@ export function LogFormModal({
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return types.filter((t) => t.label.toLowerCase().includes(q)).slice(0, 12);
-  }, [types, search]);
+  /** Groupes par attribut, filtrés par recherche + chip. */
+  const groups = useMemo(() => {
+    const q = normalize(search);
+    const matches = (t: ActivityTypeOption) => {
+      if (attrFilter && t.attributeCode !== attrFilter) return false;
+      if (!q) return true;
+      const attr = ATTRIBUTES[t.attributeCode as AttributeCode];
+      return (
+        normalize(t.label).includes(q) ||
+        normalize(t.code).includes(q) ||
+        normalize(attr?.code ?? "").includes(q) ||
+        normalize(attr?.name ?? "").includes(q)
+      );
+    };
+    return ATTRIBUTE_LIST.map((attr) => ({
+      attr,
+      types: types.filter(
+        (t) => t.attributeCode === attr.code && matches(t),
+      ),
+    })).filter((g) => g.types.length > 0);
+  }, [types, search, attrFilter]);
 
   const selected = types.find((t) => t.id === typeId) ?? null;
+  const selectedAttr = selected
+    ? ATTRIBUTES[selected.attributeCode as AttributeCode]
+    : null;
 
   async function uploadPhoto(file: File) {
     setUploading(true);
@@ -118,16 +151,16 @@ export function LogFormModal({
           onClick={onClose}
         >
           <motion.div
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            initial={{ y: 40, opacity: 0, scale: 0.98 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 40, opacity: 0, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border-default bg-surface p-6 sm:rounded-2xl"
+            className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl border border-border-default bg-surface sm:rounded-2xl"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center justify-between px-6 pb-3 pt-6">
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-xl font-bold">
-                Log détaillé
+                {selected ? "Détails du log" : "Quelle activité ?"}
               </h2>
               <button
                 type="button"
@@ -141,44 +174,103 @@ export function LogFormModal({
 
             {/* Choix du type */}
             {!selected ? (
-              <div>
+              <div className="flex min-h-0 flex-col px-6 pb-6">
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Chercher une activité…"
+                  placeholder="Chercher… (« lecture », « vit », « sommeil »)"
+                  autoFocus
                   className="mb-3 w-full rounded-xl border border-border-default bg-surface-raised px-4 py-2.5 outline-none focus:border-accent"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  {filtered.map((t) => {
-                    const attr = ATTRIBUTES[t.attributeCode as AttributeCode];
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setTypeId(t.id)}
-                        className="rounded-xl border border-border-default bg-surface-raised px-3 py-2 text-left text-sm transition-colors hover:border-accent"
-                      >
-                        <span
-                          className="stat-number block text-[10px] font-bold"
-                          style={{ color: attr?.color }}
+                {/* Filtres par attribut */}
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {ATTRIBUTE_LIST.map((attr) => (
+                    <button
+                      key={attr.code}
+                      type="button"
+                      onClick={() =>
+                        setAttrFilter(
+                          attrFilter === attr.code ? null : attr.code,
+                        )
+                      }
+                      title={attr.name}
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[11px] font-bold transition-all",
+                        attrFilter === attr.code
+                          ? "scale-105 text-background"
+                          : "bg-surface-raised text-muted hover:text-foreground",
+                      )}
+                      style={
+                        attrFilter === attr.code
+                          ? { backgroundColor: attr.color }
+                          : {}
+                      }
+                    >
+                      {attr.code}
+                    </button>
+                  ))}
+                </div>
+                {/* Liste complète groupée, scrollable */}
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  {groups.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted">
+                      Rien ne correspond à « {search} ».
+                    </p>
+                  ) : (
+                    groups.map((group) => (
+                      <div key={group.attr.code} className="mb-4">
+                        <p
+                          className="stat-number sticky top-0 z-10 bg-surface py-1 text-xs font-bold uppercase tracking-wider"
+                          style={{ color: group.attr.color }}
                         >
-                          {t.attributeCode}
-                        </span>
-                        {t.label}
-                      </button>
-                    );
-                  })}
+                          {group.attr.name}
+                          <span className="ml-2 font-normal normal-case text-muted">
+                            {group.attr.domain}
+                          </span>
+                        </p>
+                        <div className="mt-1.5 grid grid-cols-2 gap-2">
+                          {group.types.map((t) => (
+                            <motion.button
+                              key={t.id}
+                              type="button"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => setTypeId(t.id)}
+                              className="rounded-xl border border-border-default bg-surface-raised px-3 py-2 text-left text-sm transition-colors hover:border-accent"
+                            >
+                              <span className="block truncate">{t.label}</span>
+                              <span className="text-[11px] text-muted">
+                                ~{t.baseXp} XP
+                              </span>
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-6 pb-6">
                 <button
                   type="button"
                   onClick={() => setTypeId(null)}
-                  className="flex items-center justify-between rounded-xl border border-accent bg-accent-soft px-4 py-3 text-left"
+                  className="flex items-center justify-between rounded-xl border px-4 py-3 text-left"
+                  style={{
+                    borderColor: selectedAttr?.color,
+                    backgroundColor: `${selectedAttr?.color}1a`,
+                  }}
                 >
-                  <span className="font-medium">{selected.label}</span>
+                  <span>
+                    <span
+                      className="stat-number block text-[10px] font-bold"
+                      style={{ color: selectedAttr?.color }}
+                    >
+                      {selectedAttr?.name}
+                    </span>
+                    <span className="font-medium">{selected.label}</span>
+                  </span>
                   <span className="text-xs text-muted">changer</span>
                 </button>
 
@@ -234,9 +326,10 @@ export function LogFormModal({
                   <span className="w-24 text-muted">Humeur</span>
                   <div className="flex gap-1">
                     {MOODS.map((emoji, i) => (
-                      <button
+                      <motion.button
                         key={emoji}
                         type="button"
+                        whileTap={{ scale: 1.4 }}
                         onClick={() => setMood(i + 1)}
                         className={cn(
                           "rounded-lg px-2 py-1 text-xl transition-transform",
@@ -246,7 +339,7 @@ export function LogFormModal({
                         )}
                       >
                         {emoji}
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -293,17 +386,26 @@ export function LogFormModal({
                   />
                 </div>
 
-                <button
+                <motion.button
                   type="button"
                   disabled={saving}
+                  whileTap={{ scale: 0.97 }}
                   onClick={submit}
-                  className="rounded-xl bg-accent px-4 py-3 font-semibold text-white disabled:opacity-40"
+                  className="rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-40"
+                  style={{
+                    backgroundColor: selectedAttr?.color ?? "#7C5CFF",
+                    boxShadow: `0 4px 20px ${selectedAttr?.color ?? "#7C5CFF"}44`,
+                  }}
                 >
-                  {saving ? "Enregistrement…" : "Logger"}
-                </button>
+                  {saving
+                    ? "Enregistrement…"
+                    : `Logger (~${selected.baseXp} XP)`}
+                </motion.button>
               </div>
             )}
-            {error && <p className="mt-3 text-sm text-attr-str">{error}</p>}
+            {error && (
+              <p className="px-6 pb-4 text-sm text-attr-str">{error}</p>
+            )}
           </motion.div>
         </motion.div>
       )}

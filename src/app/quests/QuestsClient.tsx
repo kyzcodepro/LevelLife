@@ -6,7 +6,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Dices, Flame, Snowflake } from "lucide-react";
+import { motion } from "framer-motion";
+import { Check, Dices, Flame, Snowflake } from "lucide-react";
 import { ATTRIBUTES, type AttributeCode } from "@/lib/attributes";
 import { localDateStr } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -113,15 +114,31 @@ export function QuestsClient() {
     const pct = done ? 100 : Math.min(100, Math.round((current / target) * 100));
 
     return (
-      <div
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
         className={cn(
           "rounded-2xl border bg-surface p-5 transition-opacity",
-          done ? "border-attr-vit/50 opacity-70" : "border-border-default",
+          done ? "border-attr-vit/50" : "border-border-default",
         )}
+        style={
+          done ? { boxShadow: "0 0 20px rgba(52, 211, 153, 0.12)" } : undefined
+        }
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
+              {done && (
+                <motion.span
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 14 }}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-attr-vit text-background"
+                >
+                  <Check size={13} strokeWidth={3} />
+                </motion.span>
+              )}
               {attr && (
                 <span
                   className="stat-number text-[10px] font-bold"
@@ -130,8 +147,7 @@ export function QuestsClient() {
                   {attr.code}
                 </span>
               )}
-              <h3 className="font-medium">
-                {done && "✓ "}
+              <h3 className={cn("font-medium", done && "text-muted line-through")}>
                 {row.quest.title}
               </h3>
             </div>
@@ -157,19 +173,24 @@ export function QuestsClient() {
         </div>
         <div className="mt-3 flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-raised">
-            <div
-              className="h-full rounded-full transition-all"
+            <motion.div
+              className="h-full rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ type: "spring", stiffness: 90, damping: 18 }}
               style={{
-                width: `${pct}%`,
-                backgroundColor: attr?.color ?? "var(--accent)",
+                backgroundColor: done
+                  ? "var(--attr-vit)"
+                  : (attr?.color ?? "var(--accent)"),
+                boxShadow: `0 0 8px ${done ? "rgba(52,211,153,0.5)" : (attr?.color ?? "#7C5CFF") + "55"}`,
               }}
             />
           </div>
           <span className="stat-number text-xs text-muted">
-            {done ? "Fait" : `${current}/${target}`}
+            {done ? "Fait !" : `${current}/${target}`}
           </span>
         </div>
-      </div>
+      </motion.div>
     );
   }
 

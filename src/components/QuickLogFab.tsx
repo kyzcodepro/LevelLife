@@ -8,11 +8,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, SlidersHorizontal, X } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import {
   ATTRIBUTES,
   type AttributeCode,
 } from "@/lib/attributes";
+import {
+  AchievementToast,
+  type UnlockedAchievement,
+} from "@/components/ui/AchievementToast";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
 import { XPToast, type XPToastData } from "@/components/ui/XPToast";
 import { LogFormModal, type ActivityTypeOption } from "./LogFormModal";
@@ -39,7 +43,18 @@ export function QuickLogFab() {
     newLevel: number;
   } | null>(null);
   const [questDone, setQuestDone] = useState<string | null>(null);
+  const [achievement, setAchievement] = useState<UnlockedAchievement | null>(
+    null,
+  );
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const achievementQueue = useRef<UnlockedAchievement[]>([]);
+
+  /** File d'attente : les succès débloqués défilent un par un. */
+  const showNextAchievement = useCallback(() => {
+    const next = achievementQueue.current.shift() ?? null;
+    setAchievement(next);
+    if (next) setTimeout(showNextAchievement, 3200);
+  }, []);
 
   useEffect(() => {
     fetch("/api/activity-types?frequent=8")
@@ -58,6 +73,7 @@ export function QuickLogFab() {
       awards: { attributeCode: AttributeCode; amount: number }[];
       levelUps: { attributeCode: AttributeCode; newLevel: number }[];
       completedQuests: { title: string }[];
+      unlocked?: UnlockedAchievement[];
     }) => {
       const award = data.awards[0];
       if (award) {
@@ -81,9 +97,14 @@ export function QuickLogFab() {
         setQuestDone(data.completedQuests[0].title);
         setTimeout(() => setQuestDone(null), 5000);
       }
+      if (data.unlocked && data.unlocked.length > 0) {
+        achievementQueue.current.push(...data.unlocked);
+        // Laisse le level-up passer d'abord.
+        setTimeout(showNextAchievement, data.levelUps.length > 0 ? 2200 : 600);
+      }
       router.refresh();
     },
-    [router],
+    [router, showNextAchievement],
   );
 
   const quickLog = useCallback(
@@ -138,12 +159,17 @@ export function QuickLogFab() {
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {types.map((type) => {
+                {types.map((type, i) => {
                   const attr = ATTRIBUTES[type.attributeCode as AttributeCode];
                   return (
-                    <button
+                    <motion.button
                       key={type.id}
                       type="button"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.035, duration: 0.2 }}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => quickLog(type)}
                       className="rounded-xl border border-border-default bg-surface px-3 py-2 text-left transition-colors hover:border-accent hover:bg-accent-soft"
                     >
@@ -156,21 +182,28 @@ export function QuickLogFab() {
                       <span className="block truncate text-sm">
                         {type.label}
                       </span>
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-        <button
+        <motion.button
           type="button"
           aria-label={open ? "Fermer le Quick Log" : "Ouvrir le Quick Log"}
           onClick={() => setOpen((o) => !o)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition-transform hover:scale-105 active:scale-95"
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          className="pulse-glow flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30"
         >
-          {open ? <X size={24} /> : <Plus size={26} />}
-        </button>
+          <motion.span
+            animate={{ rotate: open ? 135 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
+            <Plus size={26} />
+          </motion.span>
+        </motion.button>
       </div>
 
       {/* Toast quête complétée */}
@@ -188,6 +221,7 @@ export function QuickLogFab() {
       </AnimatePresence>
 
       <XPToast toast={toast} onUndo={() => undo(toast?.logId)} />
+      <AchievementToast achievement={achievement} />
       <LevelUpModal
         open={levelUp !== null}
         attribute={levelUp?.attribute ?? "STR"}

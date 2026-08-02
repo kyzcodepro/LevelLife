@@ -54,17 +54,26 @@ export function StatBar({
           aria-label={`${def.name} niveau ${level}, ${pct} %`}
         >
           <motion.div
-            className="h-full rounded-full"
-            style={{ backgroundColor: def.color }}
+            className="xp-shimmer relative h-full overflow-hidden rounded-full"
+            style={{
+              backgroundColor: def.color,
+              boxShadow: `0 0 8px ${def.color}66`,
+            }}
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
-            transition={{ type: "spring", stiffness: 120, damping: 20 }}
+            transition={{ type: "spring", stiffness: 90, damping: 18 }}
           />
         </div>
       </div>
-      <span className="stat-number w-10 shrink-0 text-right text-lg font-bold">
+      <motion.span
+        key={level}
+        initial={{ scale: 1.6, color: def.color }}
+        animate={{ scale: 1, color: "#e7eaf2" }}
+        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+        className="stat-number w-10 shrink-0 text-right text-lg font-bold"
+      >
         {level}
-      </span>
+      </motion.span>
     </div>
   );
 }

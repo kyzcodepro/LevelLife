@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ATTRIBUTES, type AttributeCode } from "@/lib/attributes";
+import { AnimatedNumber } from "./AnimatedNumber";
 
 export interface XPToastData {
   id: string | number;
@@ -16,9 +17,11 @@ interface XPToastProps {
 }
 
 /**
- * Toast d'XP : « +42 XP · FOR » — doit apparaître sous 300 ms après un log.
+ * Toast d'XP : « +42 XP · Force » — spring, halo à la couleur de l'attribut,
+ * compteur qui grimpe. Doit apparaître sous 300 ms après un log.
  */
 export function XPToast({ toast, onUndo }: XPToastProps) {
+  const color = toast ? ATTRIBUTES[toast.attribute].color : "#7C5CFF";
   return (
     <div
       aria-live="polite"
@@ -28,18 +31,26 @@ export function XPToast({ toast, onUndo }: XPToastProps) {
         {toast && (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            initial={{ opacity: 0, y: 32, scale: 0.7 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="pointer-events-auto flex items-center gap-3 rounded-full border border-border-default bg-surface-raised px-5 py-2.5 shadow-lg shadow-black/40"
+            exit={{ opacity: 0, y: -16, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 22 }}
+            className="pointer-events-auto flex items-center gap-3 rounded-full border bg-surface-raised px-5 py-2.5"
+            style={{
+              borderColor: `${color}66`,
+              boxShadow: `0 0 24px ${color}33, 0 8px 24px rgba(0,0,0,0.5)`,
+            }}
           >
-            <span
-              className="stat-number text-lg font-bold"
-              style={{ color: ATTRIBUTES[toast.attribute].color }}
+            <motion.span
+              initial={{ scale: 1 }}
+              animate={{ scale: [1, 1.25, 1] }}
+              transition={{ duration: 0.45, delay: 0.15 }}
+              className="stat-number flex items-baseline text-lg font-bold"
+              style={{ color }}
             >
-              +{toast.amount} XP
-            </span>
+              +<AnimatedNumber value={toast.amount} duration={0.6} />
+              <span className="ml-1">XP</span>
+            </motion.span>
             <span className="text-sm font-semibold text-muted">
               · {ATTRIBUTES[toast.attribute].name}
             </span>
