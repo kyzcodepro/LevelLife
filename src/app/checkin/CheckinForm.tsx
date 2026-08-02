@@ -4,14 +4,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 const SLIDERS = [
-  { key: "energy", label: "Énergie", low: "Épuisé", high: "En pleine forme" },
-  { key: "mood", label: "Humeur", low: "Sombre", high: "Lumineuse" },
-  { key: "meaning", label: "Sens", low: "À quoi bon", high: "Aligné" },
-  { key: "relations", label: "Relations", low: "Isolé", high: "Entouré" },
-  { key: "stress", label: "Stress", low: "Détendu", high: "Sous pression" },
-  { key: "satisfaction", label: "Satisfaction", low: "Frustré", high: "Fier" },
+  { key: "energy", label: "Énergie", low: "Épuisé", high: "En pleine forme", emojis: ["🪫", "😮‍💨", "🙂", "⚡", "🔥"] },
+  { key: "mood", label: "Humeur", low: "Sombre", high: "Lumineuse", emojis: ["🌧️", "☁️", "⛅", "🌤️", "☀️"] },
+  { key: "meaning", label: "Sens", low: "À quoi bon", high: "Aligné", emojis: ["🌫️", "🤷", "🧭", "🎯", "🌟"] },
+  { key: "relations", label: "Relations", low: "Isolé", high: "Entouré", emojis: ["🏝️", "👤", "👥", "🫂", "🎉"] },
+  { key: "stress", label: "Stress", low: "Détendu", high: "Sous pression", emojis: ["🧘", "😌", "😐", "😬", "🤯"] },
+  { key: "satisfaction", label: "Satisfaction", low: "Frustré", high: "Fier", emojis: ["😤", "😕", "🙂", "😊", "🏆"] },
 ] as const;
 
 type SliderKey = (typeof SLIDERS)[number]["key"];
@@ -48,12 +49,28 @@ export function CheckinForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      {SLIDERS.map((slider) => (
+      {SLIDERS.map((slider) => {
+        const emoji =
+          slider.emojis[
+            Math.min(4, Math.floor(((values[slider.key] - 1) / 10) * 5))
+          ];
+        return (
         <div key={slider.key}>
           <div className="mb-1 flex items-baseline justify-between">
             <span className="font-medium">{slider.label}</span>
-            <span className="stat-number text-2xl font-bold text-accent">
-              {values[slider.key]}
+            <span className="flex items-center gap-2">
+              <motion.span
+                key={emoji}
+                initial={{ scale: 0.4, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                className="text-2xl"
+              >
+                {emoji}
+              </motion.span>
+              <span className="stat-number text-2xl font-bold text-accent">
+                {values[slider.key]}
+              </span>
             </span>
           </div>
           <input
@@ -74,7 +91,8 @@ export function CheckinForm() {
             <span>{slider.high}</span>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <textarea
         value={note}

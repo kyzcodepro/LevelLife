@@ -13,6 +13,8 @@ import {
   ATTRIBUTES,
   type AttributeCode,
 } from "@/lib/attributes";
+import { AttributeRadar } from "@/components/ui/AttributeRadar";
+import { Sigil } from "@/components/ui/Sigil";
 import { XPToast, type XPToastData } from "@/components/ui/XPToast";
 import { cn } from "@/lib/utils";
 
@@ -145,12 +147,22 @@ export function OnboardingWizard({
         {step === 0 && (
           <section>
             <h1 className="mb-2 font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">
-              Choisis ton pseudo
+              Crée ton personnage
             </h1>
-            <p className="mb-8 text-muted">
-              C'est le nom de ton personnage. Tu pourras le rendre public — ou
-              pas.
+            <p className="mb-6 text-muted">
+              Ton pseudo forge ton emblème — unique, il évoluera avec ton
+              niveau. Public ou pas, c'est toi qui décides.
             </p>
+            {/* L'emblème se dessine en direct pendant la saisie. */}
+            <div className="mb-6 flex justify-center">
+              <Sigil
+                key={username || "?"}
+                seed={username || "?"}
+                color="#7C5CFF"
+                level={1}
+                size={110}
+              />
+            </div>
             <input
               type="text"
               value={username}
@@ -173,12 +185,24 @@ export function OnboardingWizard({
         {step === 1 && (
           <section>
             <h1 className="mb-2 font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">
-              Qu'est-ce qui compte pour toi ?
+              Dessine ta fiche de perso
             </h1>
-            <p className="mb-8 text-muted">
-              Répartis l'importance de chaque domaine. Ça pondère ton niveau
-              global — tu pourras changer plus tard.
+            <p className="mb-4 text-muted">
+              Répartis l'importance de chaque domaine — le radar bouge en
+              direct. Ça pondère ton niveau global, modifiable plus tard.
             </p>
+            {/* Aperçu vivant : le radar reflète les curseurs. */}
+            <div className="pointer-events-none mx-auto mb-2 w-64">
+              <AttributeRadar
+                levels={
+                  Object.fromEntries(
+                    ATTRIBUTE_LIST.map((a) => [a.code, weights[a.code]]),
+                  ) as Record<AttributeCode, number>
+                }
+                maxLevel={30}
+                height={210}
+              />
+            </div>
             <div className="flex flex-col gap-4">
               {ATTRIBUTE_LIST.map((attr) => (
                 <div key={attr.code} className="flex items-center gap-4">
@@ -236,16 +260,20 @@ export function OnboardingWizard({
                 const selected = favorites.includes(type.id);
                 const attr = ATTRIBUTES[type.attributeCode as AttributeCode];
                 return (
-                  <button
+                  <motion.button
                     key={type.id}
                     type="button"
+                    whileTap={{ scale: 0.93 }}
+                    animate={selected ? { scale: [1, 1.06, 1] } : {}}
+                    transition={{ duration: 0.25 }}
                     onClick={() => toggleFavorite(type.id)}
                     className={cn(
                       "rounded-xl border px-3 py-2.5 text-left text-sm transition-colors",
                       selected
-                        ? "border-accent bg-accent-soft"
+                        ? "bg-accent-soft"
                         : "border-border-default bg-surface hover:bg-surface-raised",
                     )}
+                    style={selected ? { borderColor: attr?.color } : undefined}
                   >
                     <span
                       className="stat-number block text-[10px] font-bold"
@@ -254,7 +282,7 @@ export function OnboardingWizard({
                       {type.attributeCode}
                     </span>
                     <span className="mt-0.5 block truncate">{type.label}</span>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>

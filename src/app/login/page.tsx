@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, hasOAuth } from "@/auth";
+import { AttributeOrbs } from "@/components/ui/AttributeOrbs";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
@@ -7,8 +8,9 @@ export default async function LoginPage() {
   if (session?.user) redirect("/");
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+      <AttributeOrbs />
+      <div className="relative w-full max-w-sm">
         <p className="mb-1 text-center text-sm font-semibold uppercase tracking-[0.3em] text-accent">
           Ascend
         </p>

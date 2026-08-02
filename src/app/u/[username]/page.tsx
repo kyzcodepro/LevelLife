@@ -10,8 +10,10 @@ import {
   ATTRIBUTE_LIST,
   type AttributeCode,
 } from "@/lib/attributes";
+import { titleForLevel } from "@/lib/titles";
 import { globalLevel, levelFromXp } from "@/lib/xp";
 import { AttributeRadar } from "@/components/ui/AttributeRadar";
+import { Sigil } from "@/components/ui/Sigil";
 import { StatBar } from "@/components/ui/StatBar";
 
 /**
@@ -79,13 +81,35 @@ export default async function PublicProfilePage({
           Ascend
         </p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-bold">
-              {user.username}
-            </h1>
-            {profile.bio && (
-              <p className="mt-1 text-sm text-muted">{profile.bio}</p>
-            )}
+          <div className="flex items-center gap-4">
+            <Sigil
+              seed={user.username!}
+              color={
+                shown[0]
+                  ? shown.reduce((best, a) =>
+                      (xpByCode[a.code] ?? 0) > (xpByCode[best.code] ?? 0)
+                        ? a
+                        : best,
+                    ).color
+                  : "#7C5CFF"
+              }
+              level={globalLevel(levels, weights)}
+              size={80}
+            />
+            <div>
+              <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-bold">
+                {user.username}
+              </h1>
+              <p
+                className="stat-number text-sm font-bold uppercase tracking-widest"
+                style={{ color: titleForLevel(globalLevel(levels, weights)).color }}
+              >
+                {titleForLevel(globalLevel(levels, weights)).title}
+              </p>
+              {profile.bio && (
+                <p className="mt-1 text-sm text-muted">{profile.bio}</p>
+              )}
+            </div>
           </div>
           <div className="rounded-2xl border border-border-default bg-surface px-6 py-4 text-right">
             <p className="text-xs uppercase tracking-wider text-muted">

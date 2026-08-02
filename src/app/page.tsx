@@ -24,13 +24,16 @@ import {
 import { localDateStr } from "@/lib/dates";
 import { detectOverdrive } from "@/lib/overdrive";
 import { currentUser } from "@/lib/session";
+import { nextTitle, titleForLevel } from "@/lib/titles";
 import { globalLevel, levelFromXp } from "@/lib/xp";
 import { AppNav } from "@/components/AppNav";
 import { QuickLogFab } from "@/components/QuickLogFab";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { AttributeOrbs } from "@/components/ui/AttributeOrbs";
 import { AttributeRadar } from "@/components/ui/AttributeRadar";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { LevelRing } from "@/components/ui/LevelRing";
+import { Sigil } from "@/components/ui/Sigil";
 import { StatBar } from "@/components/ui/StatBar";
 
 export default async function Home() {
@@ -111,6 +114,13 @@ export default async function Home() {
   const bestStreak = Math.max(0, ...userStreaks.map((s) => s.streak.current));
   const overdrive = await detectOverdrive(db, user.id, user.timezone);
 
+  // Titre + emblème teinté par l'attribut dominant.
+  const title = titleForLevel(global);
+  const next = nextTitle(global);
+  const dominant = ATTRIBUTE_LIST.reduce((best, a) =>
+    (xpByCode[a.code] ?? 0) > (xpByCode[best.code] ?? 0) ? a : best,
+  );
+
   const unlockedIds = new Set(mineAchievements.map((a) => a.achievementId));
   const rarityColor: Record<string, string> = {
     common: "var(--muted)",
@@ -127,16 +137,37 @@ export default async function Home() {
         {/* Héros : niveau + le jour en un coup d'œil */}
         <FadeIn>
           <header className="mb-6 flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-border-default bg-surface p-6">
+            <div className="flex items-center gap-5">
+              <Sigil
+                seed={user.username}
+                color={dominant.color}
+                level={global}
+                size={96}
+              />
+              <div>
+                <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">
+                  {user.username}
+                </h1>
+                <p
+                  className="stat-number text-sm font-bold uppercase tracking-widest"
+                  style={{ color: title.color }}
+                >
+                  {title.title}
+                  {next && (
+                    <span className="ml-2 font-normal normal-case tracking-normal text-muted">
+                      · {next.title} au niveau {next.minLevel}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {xpToday > 0
+                    ? "Belle journée — chaque log te rapproche du prochain niveau."
+                    : "Rien de loggé aujourd'hui. Une action suffit — bouton + en bas à droite."}
+                </p>
+              </div>
+            </div>
             <div>
-              <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">
-                Salut {user.username} 👋
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                {xpToday > 0
-                  ? "Belle journée — chaque log te rapproche du prochain niveau."
-                  : "Rien de loggé aujourd'hui. Une action suffit pour lancer la journée — bouton + en bas à droite."}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3">
                 <div className="rounded-xl bg-surface-raised px-4 py-2">
                   <p className="stat-number text-2xl font-bold text-accent">
                     +<AnimatedNumber value={xpToday} />
@@ -431,7 +462,8 @@ export default async function Home() {
 
 function Landing() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 text-center">
+      <AttributeOrbs />
       <p className="mb-2 text-sm font-semibold uppercase tracking-[0.4em] text-accent">
         Ascend
       </p>

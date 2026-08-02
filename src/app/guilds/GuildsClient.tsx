@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Crown, Shield, VolumeX } from "lucide-react";
 import { ATTRIBUTES, type AttributeCode } from "@/lib/attributes";
+import { Confetti } from "@/components/ui/Confetti";
 import { cn } from "@/lib/utils";
 
 const EMOJIS = ["🔥", "💪", "👏", "⚡", "🫡", "❤️"];
@@ -253,7 +254,8 @@ export function GuildsClient() {
         </div>
 
         {/* Objectif hebdo */}
-        <div className="mt-5">
+        <div className="relative mt-5">
+          {detail.objective.achieved && <Confetti count={22} />}
           <div className="mb-1 flex items-baseline justify-between text-sm">
             <span className="font-medium">
               Objectif de la semaine{" "}
@@ -267,8 +269,17 @@ export function GuildsClient() {
           </div>
           <div className="h-2.5 overflow-hidden rounded-full bg-surface-raised">
             <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${pct}%` }}
+              className={cn(
+                "relative h-full overflow-hidden rounded-full transition-all",
+                detail.objective.achieved ? "bg-attr-vit" : "bg-accent",
+                pct > 0 && "xp-shimmer",
+              )}
+              style={{
+                width: `${pct}%`,
+                boxShadow: detail.objective.achieved
+                  ? "0 0 12px rgba(52,211,153,0.5)"
+                  : "0 0 10px rgba(124,92,255,0.4)",
+              }}
             />
           </div>
         </div>

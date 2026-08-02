@@ -15,6 +15,8 @@ interface AttributeRadarProps {
   levels: Partial<Record<AttributeCode, number>>;
   /** Échelle max du radar (par défaut : max des niveaux, min 10). */
   maxLevel?: number;
+  /** Hauteur en px (320 par défaut). */
+  height?: number;
   className?: string;
 }
 
@@ -24,6 +26,7 @@ interface AttributeRadarProps {
 export function AttributeRadar({
   levels,
   maxLevel,
+  height = 320,
   className,
 }: AttributeRadarProps) {
   const data = ATTRIBUTE_LIST.map((attr) => ({
@@ -36,7 +39,7 @@ export function AttributeRadar({
     maxLevel ?? Math.max(10, ...data.map((d) => d.level));
 
   return (
-    <div className={className} style={{ width: "100%", height: 320 }}>
+    <div className={className} style={{ width: "100%", height }}>
       <ResponsiveContainer>
         <RadarChart data={data} outerRadius="75%">
           <PolarGrid stroke="#232a3b" />
