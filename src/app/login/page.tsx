@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
-import { auth, hasOAuth } from "@/auth";
+import { hasOAuth } from "@/auth";
+import { currentUser } from "@/lib/session";
 import { AttributeOrbs } from "@/components/ui/AttributeOrbs";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
-  const session = await auth();
-  if (session?.user) redirect("/");
+  // On vérifie l'utilisateur EN BASE, pas seulement le cookie : un JWT
+  // orphelin (base locale recréée) doit pouvoir se reconnecter ici.
+  const user = await currentUser();
+  if (user) redirect("/");
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
