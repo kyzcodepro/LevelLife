@@ -2,11 +2,13 @@ import Link from "next/link";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Flame, Snowflake } from "lucide-react";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   achievements,
   activityTypes,
   habits,
+  logs as logsTable,
   lqiScores,
   profiles,
   questInstances,
@@ -25,6 +27,7 @@ import { localDateStr } from "@/lib/dates";
 import { detectOverdrive } from "@/lib/overdrive";
 import { currentUser } from "@/lib/session";
 import { nextTitle, titleForLevel } from "@/lib/titles";
+import { isUnlocked, nextUnlock } from "@/lib/unlocks";
 import { globalLevel, levelFromXp } from "@/lib/xp";
 import { AppNav } from "@/components/AppNav";
 import { QuickLogFab } from "@/components/QuickLogFab";
@@ -92,6 +95,13 @@ export default async function Home() {
       ),
   ]);
 
+  const [{ logsTotal }] = await db
+    .select({ logsTotal: sql<number>`count(*)::int` })
+    .from(logsTable)
+    .where(eq(logsTable.userId, user.id));
+  const questsUnlocked = isUnlocked("quests", logsTotal);
+  const teaser = nextUnlock(logsTotal);
+
   const xpByCode = Object.fromEntries(
     attrs.map((a) => [a.attributeCode, a.xpTotal]),
   ) as Record<AttributeCode, number>;
@@ -132,7 +142,7 @@ export default async function Home() {
 
   return (
     <>
-      <AppNav username={user.username} />
+      <AppNav username={user.username} logsTotal={logsTotal} />
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {/* Héros : niveau + le jour en un coup d'œil */}
         <FadeIn>
@@ -215,7 +225,35 @@ export default async function Home() {
           </FadeIn>
         )}
 
-        {/* À faire maintenant */}
+        {/* À faire maintenant — ou teaser du prochain déblocage */}
+        {!questsUnlocked && teaser ? (
+          <FadeIn delay={0.08}>
+            <section className="mb-6 rounded-2xl border border-accent/30 bg-accent-soft p-6">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-accent">
+                🔓 Prochain déblocage : {teaser.module.label}
+              </h2>
+              <p className="text-sm text-muted">
+                Encore{" "}
+                <strong className="text-foreground">
+                  {teaser.remaining} log{teaser.remaining > 1 ? "s" : ""}
+                </strong>{" "}
+                pour ouvrir ce module. Une action réelle = un log — bouton +
+                en bas à droite.
+              </p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
+                <div
+                  className="xp-shimmer relative h-full overflow-hidden rounded-full bg-accent"
+                  style={{
+                    width: `${Math.round((logsTotal / teaser.module.threshold) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="stat-number mt-1 text-right text-xs text-muted">
+                {logsTotal}/{teaser.module.threshold}
+              </p>
+            </section>
+          </FadeIn>
+        ) : questsUnlocked ? (
         <FadeIn delay={0.08}>
           <section className="mb-6 rounded-2xl border border-accent/30 bg-accent-soft p-6">
             <div className="mb-3 flex items-center justify-between">
@@ -283,6 +321,7 @@ export default async function Home() {
             )}
           </section>
         </FadeIn>
+        ) : null}
 
         <div className="grid gap-6 lg:grid-cols-2">
           <FadeIn delay={0.12}>
@@ -319,7 +358,8 @@ export default async function Home() {
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          {/* Habitudes */}
+          {/* Habitudes — seulement quand il y a quelque chose à montrer */}
+          {userStreaks.length > 0 && (
           <FadeIn delay={0.2}>
             <section className="rounded-2xl border border-border-default bg-surface p-6">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
@@ -370,8 +410,10 @@ export default async function Home() {
               )}
             </section>
           </FadeIn>
+          )}
 
-          {/* LQI */}
+          {/* LQI — introduit une fois la Rétro débloquée (15 logs) */}
+          {isUnlocked("retro", logsTotal) && (
           <FadeIn delay={0.24}>
             <section className="rounded-2xl border border-border-default bg-surface p-6">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
@@ -411,16 +453,26 @@ export default async function Home() {
               )}
             </section>
           </FadeIn>
+          )}
         </div>
 
-        {/* Succès (AVA-5) */}
+        {/* Succès (AVA-5) — apparaît après les premiers logs, version compacte :
+            les débloqués + un avant-goût des prochains. */}
+        {logsTotal >= 3 && (
         <FadeIn delay={0.28}>
           <section className="mt-6 rounded-2xl border border-border-default bg-surface p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">
               Succès — {unlockedIds.size}/{allAchievements.length}
             </h2>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {allAchievements.map((a) => {
+              {[...allAchievements]
+                .sort(
+                  (a, b) =>
+                    Number(unlockedIds.has(b.id)) -
+                    Number(unlockedIds.has(a.id)),
+                )
+                .slice(0, Math.max(8, unlockedIds.size + 4))
+                .map((a) => {
                 const unlocked = unlockedIds.has(a.id);
                 return (
                   <div
@@ -454,6 +506,7 @@ export default async function Home() {
             </div>
           </section>
         </FadeIn>
+        )}
       </main>
       <QuickLogFab />
     </>

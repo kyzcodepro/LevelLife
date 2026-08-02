@@ -17,6 +17,7 @@ import {
   AchievementToast,
   type UnlockedAchievement,
 } from "@/components/ui/AchievementToast";
+import { newlyUnlocked } from "@/lib/unlocks";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
 import { XPToast, type XPToastData } from "@/components/ui/XPToast";
 import { LogFormModal, type ActivityTypeOption } from "./LogFormModal";
@@ -74,6 +75,7 @@ export function QuickLogFab() {
       levelUps: { attributeCode: AttributeCode; newLevel: number }[];
       completedQuests: { title: string }[];
       unlocked?: UnlockedAchievement[];
+      logsTotal?: number;
     }) => {
       const award = data.awards[0];
       if (award) {
@@ -94,13 +96,21 @@ export function QuickLogFab() {
         });
       }
       if (data.completedQuests.length > 0) {
-        setQuestDone(data.completedQuests[0].title);
+        setQuestDone(`⚔️ Quête accomplie : ${data.completedQuests[0].title}`);
         setTimeout(() => setQuestDone(null), 5000);
       }
       if (data.unlocked && data.unlocked.length > 0) {
         achievementQueue.current.push(...data.unlocked);
         // Laisse le level-up passer d'abord.
         setTimeout(showNextAchievement, data.levelUps.length > 0 ? 2200 : 600);
+      }
+      // Déverrouillage progressif : module franchi → célébration.
+      if (typeof data.logsTotal === "number") {
+        const modules = newlyUnlocked(data.logsTotal - 1, data.logsTotal);
+        if (modules.length > 0) {
+          setQuestDone(`Module débloqué : ${modules[0].label} ! 🔓`);
+          setTimeout(() => setQuestDone(null), 5000);
+        }
       }
       router.refresh();
     },
@@ -215,7 +225,7 @@ export function QuickLogFab() {
             exit={{ opacity: 0, y: -16 }}
             className="fixed left-1/2 top-16 z-50 -translate-x-1/2 rounded-full border border-accent bg-surface-raised px-5 py-2 text-sm shadow-lg"
           >
-            ⚔️ Quête accomplie : <strong>{questDone}</strong>
+            <strong>{questDone}</strong>
           </motion.div>
         )}
       </AnimatePresence>

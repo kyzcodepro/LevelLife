@@ -35,7 +35,12 @@ export async function POST(req: NextRequest) {
     const result = await createLog(db, user, parsed.data);
     const { checkAchievements } = await import("@/lib/achievementService");
     const unlocked = await checkAchievements(db, user);
-    return NextResponse.json({ ...result, unlocked }, { status: 201 });
+    // Total de logs — pilote le déverrouillage progressif des modules.
+    const [{ count: logsTotal }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(logs)
+      .where(eq(logs.userId, user.id));
+    return NextResponse.json({ ...result, unlocked, logsTotal }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur interne";
     const status = message.includes("introuvable") ? 404 : 500;
